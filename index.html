@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shared Monthly Planner</title>
+<style>
+:root {
+  --bg: #FDF6EC;
+  --card: #FFFFFF;
+  --ink: #241E33;
+  --ink-soft: #7A6E8C;
+  --accent: #7C4DFF;
+  --accent-soft: #EDE5FF;
+  --pink: #FF4D9D;
+  --pink-soft: #FFE3F0;
+  --teal: #00B8A9;
+  --teal-soft: #DCF7F3;
+  --amber: #FFA630;
+  --amber-soft: #FFEED9;
+  --border: #EBDFF7;
+  --border-strong: #D9C4F0;
+  --radius: 12px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+.wrap { max-width: 720px; margin: 0 auto; padding: 32px 20px 60px; }
+header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
+h1 { font-size: 1.6rem; font-weight: 800; margin: 0; background: linear-gradient(90deg, var(--accent), var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.subtitle { font-size: 0.85rem; color: var(--ink-soft); margin: 0 0 20px; font-weight: 600; }
+.notice { background: var(--amber-soft); color: #8A5A00; font-size: 0.78rem; padding: 10px 14px; border-radius: var(--radius); margin-bottom: 22px; border: 1px solid #FFD79A; }
+.name-row { display: flex; gap: 8px; align-items: center; margin-bottom: 24px; background: var(--card); border: 2px solid var(--border-strong); border-radius: var(--radius); padding: 12px 14px; box-shadow: 0 3px 0 var(--border); }
+.name-row label { font-size: 0.8rem; color: var(--accent); font-weight: 700; white-space: nowrap; }
+.name-row input { flex: 1; border: 2px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 0.9rem; }
+.today-card { background: linear-gradient(135deg, var(--accent-soft), var(--pink-soft)); border-radius: 16px; padding: 18px 20px; margin-bottom: 24px; border: 2px solid var(--border-strong); }
+.today-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); margin: 0 0 10px; font-weight: 800; }
+.today-entries { display: flex; flex-direction: column; gap: 6px; }
+.today-empty { font-size: 0.85rem; color: var(--ink-soft); font-style: italic; margin: 0; }
+.day { border: 2px solid var(--border); border-radius: 14px; margin-bottom: 10px; overflow: hidden; background: var(--card); }
+.day-header { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border: none; background: none; cursor: pointer; text-align: left; font-size: 0.9rem; }
+.day-header.today { background: var(--accent-soft); }
+.day-title { display: flex; align-items: center; gap: 10px; }
+.day-name { font-weight: 700; min-width: 92px; }
+.day-preview { font-size: 0.78rem; color: var(--ink-soft); font-weight: 600; }
+.chevron { color: var(--accent); font-size: 0.85rem; font-weight: 800; }
+.day-body { padding: 12px 16px 16px; border-top: 2px dashed var(--border); display: none; }
+.day-body.open { display: block; }
+.entry-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.entry { border: 2px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 0.82rem; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.entry .who { font-weight: 800; padding: 2px 9px; border-radius: 999px; color: #fff; font-size: 0.72rem; }
+.entry .meta { color: var(--ink-soft); font-weight: 600; }
+.add-form { display: flex; flex-direction: column; gap: 8px; }
+.add-form .row { display: flex; gap: 8px; }
+.add-form input { flex: 1; border: 2px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.85rem; min-width: 0; }
+.add-form button { background: linear-gradient(90deg, var(--accent), var(--pink)); color: #fff; border: none; border-radius: 8px; padding: 10px; font-weight: 800; font-size: 0.85rem; cursor: pointer; }
+.add-form button:hover { opacity: 0.9; }
+.hint { font-size: 0.72rem; color: var(--pink); font-weight: 700; margin: 0; }
+.remove-btn { background: none; border: none; color: var(--ink-soft); font-size: 0.72rem; text-decoration: underline; cursor: pointer; padding: 0; margin-left: 8px; }
+.loading { text-align: center; color: var(--ink-soft); font-size: 0.85rem; padding: 40px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Shared monthly planner</h1>
+  </header>
+  <p class="subtitle" id="monthLabel"></p>
+  <p class="notice">This planner is shared — anyone with this page can see and add picks for any day.</p>
+
+  <div class="name-row">
+    <label for="myName">Your name</label>
+    <input id="myName" type="text" placeholder="e.g. Priya" />
+  </div>
+
+  <div class="today-card">
+    <p class="today-label" id="todayHeading"></p>
+    <div class="today-entries" id="todayEntries"></div>
+  </div>
+
+  <div id="days" class="loading">Loading planner…</div>
+</div>
+
+<script>
+const now = new Date();
+const year = now.getFullYear();
+const month = now.getMonth();
+const daysInMonth = new Date(year, month + 1, 0).getDate();
+const monthKey = year + '-' + String(month + 1).padStart(2, '0');
+const storageKey = 'planner-' + monthKey;
+const todayNum = now.getDate();
+
+document.getElementById('monthLabel').textContent = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+document.getElementById('todayHeading').textContent = 'Today, ' + now.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric' });
+
+let planner = {};
+let expanded = todayNum;
+
+const daysEl = document.getElementById('days');
+const todayEntriesEl = document.getElementById('todayEntries');
+const myNameInput = document.getElementById('myName');
+
+async function loadName() {
+  try {
+    const r = await window.storage.get('my-name', false);
+    myNameInput.value = r.value || '';
+  } catch (e) {}
+}
+myNameInput.addEventListener('change', async () => {
+  try { await window.storage.set('my-name', myNameInput.value.trim(), false); } catch (e) {}
+});
+
+async function loadPlanner() {
+  try {
+    const r = await window.storage.get(storageKey, true);
+    planner = JSON.parse(r.value);
+  } catch (e) {
+    planner = {};
+  }
+}
+
+async function savePlanner() {
+  try {
+    await window.storage.set(storageKey, JSON.stringify(planner), true);
+  } catch (e) {
+    console.error('Could not save', e);
+  }
+}
+
+function weekday(d) {
+  return d.toLocaleDateString('en-US', { weekday: 'short' });
+}
+
+const PERSON_COLORS = ['#7C4DFF', '#FF4D9D', '#00B8A9', '#FFA630', '#3D8BFF', '#FF6B6B', '#22C55E'];
+
+function colorForPerson(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return PERSON_COLORS[hash % PERSON_COLORS.length];
+}
+
+function entryHtml(entry) {
+  const parts = [];
+  if (entry.food) parts.push(entry.food);
+  if (entry.exerciseTime) parts.push(entry.exerciseTime + (entry.exerciseType ? ' ' + entry.exerciseType : ''));
+  const color = colorForPerson(entry.person);
+  return '<div class="entry"><span class="who" style="background:' + color + '">' + escapeHtml(entry.person) + '</span><span class="meta">' + escapeHtml(parts.join(' · ') || 'no details') + '</span></div>';
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+function renderToday() {
+  const list = planner[todayNum] || [];
+  if (list.length === 0) {
+    todayEntriesEl.innerHTML = '<p class="today-empty">No one has added a pick for today yet.</p>';
+    return;
+  }
+  todayEntriesEl.innerHTML = list.map(entryHtml).join('');
+}
+
+function renderDays() {
+  let html = '';
+  for (let i = 1; i <= daysInMonth; i++) {
+    const d = new Date(year, month, i);
+    const isToday = i === todayNum;
+    const isOpen = i === expanded;
+    const list = planner[i] || [];
+
+    const dayColor = PERSON_COLORS[i % PERSON_COLORS.length];
+    html += '<div class="day" style="border-left:5px solid ' + dayColor + '">';
+    html += '<button class="day-header' + (isToday ? ' today' : '') + '" data-day="' + i + '">';
+    html += '<span class="day-title"><span class="day-name" style="color:' + dayColor + '">' + weekday(d) + ' ' + i + '</span>';
+    if (list.length > 0) {
+      html += '<span class="day-preview">' + list.length + ' pick' + (list.length > 1 ? 's' : '') + '</span>';
+    }
+    html += '</span>';
+    html += '<span class="chevron">' + (isOpen ? '▲' : '▼') + '</span>';
+    html += '</button>';
+
+    if (isOpen) {
+      html += '<div class="day-body open">';
+      html += '<div class="entry-list">';
+      if (list.length === 0) {
+        html += '<p class="hint">No picks yet for this day. Be the first.</p>';
+      } else {
+        html += list.map((entry, idx) => entryHtml(entry).replace('</div>', '<button class="remove-btn" data-remove="' + i + ':' + idx + '">remove</button></div>')).join('');
+      }
+      html += '</div>';
+      html += '<div class="add-form">';
+      html += '<div class="row">';
+      html += '<input type="text" data-food-input="' + i + '" placeholder="Food you want to make" />';
+      html += '</div>';
+      html += '<div class="row">';
+      html += '<input type="time" data-time-input="' + i + '" />';
+      html += '<input type="text" data-type-input="' + i + '" placeholder="Exercise (e.g. run, yoga)" />';
+      html += '</div>';
+      html += '<button data-submit="' + i + '">Add my pick</button>';
+      html += '<p class="hint" id="err-' + i + '"></p>';
+      html += '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  daysEl.innerHTML = html;
+  daysEl.className = '';
+
+  daysEl.querySelectorAll('[data-day]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const day = +btn.dataset.day;
+      expanded = expanded === day ? null : day;
+      renderDays();
+    });
+  });
+
+  daysEl.querySelectorAll('[data-submit]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const day = +btn.dataset.submit;
+      const person = myNameInput.value.trim();
+      const food = daysEl.querySelector('[data-food-input="' + day + '"]').value.trim();
+      const time = daysEl.querySelector('[data-time-input="' + day + '"]').value;
+      const type = daysEl.querySelector('[data-type-input="' + day + '"]').value.trim();
+      const errEl = document.getElementById('err-' + day);
+
+      if (!person) {
+        errEl.textContent = 'Add your name at the top first.';
+        return;
+      }
+      if (!food && !time) {
+        errEl.textContent = 'Add a food pick or an exercise time.';
+        return;
+      }
+      errEl.textContent = '';
+
+      if (!planner[day]) planner[day] = [];
+      planner[day].push({ person, food, exerciseTime: time, exerciseType: type });
+      await savePlanner();
+      if (day === todayNum) renderToday();
+      renderDays();
+    });
+  });
+
+  daysEl.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const [day, idx] = btn.dataset.remove.split(':').map(Number);
+      planner[day].splice(idx, 1);
+      await savePlanner();
+      if (day === todayNum) renderToday();
+      renderDays();
+    });
+  });
+}
+
+(async function init() {
+  await loadName();
+  await loadPlanner();
+  renderToday();
+  renderDays();
+})();
+</script>
+</body>
+</html>
